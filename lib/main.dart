@@ -252,6 +252,11 @@ class HomeDashboard extends StatelessWidget {
                 : constraints.maxWidth > 680
                     ? 3
                     : 2;
+            final aspectRatio = constraints.maxWidth > 1000
+                ? 1.18
+                : constraints.maxWidth > 680
+                    ? 1.08
+                    : 0.82;
             return GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -259,7 +264,7 @@ class HomeDashboard extends StatelessWidget {
                 crossAxisCount: columns,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 1.18,
+                childAspectRatio: aspectRatio,
               ),
               itemCount: modules.length - 1,
               itemBuilder: (context, index) {
@@ -428,13 +433,13 @@ class ModuleTile extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      width: 46,
-                      height: 46,
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.20),
                         borderRadius: BorderRadius.circular(10),
@@ -448,24 +453,26 @@ class ModuleTile extends StatelessWidget {
                       icons: moduleGlyphs(module.id),
                       color: foreground,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Text(
                       module.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             color: foreground,
                             fontWeight: FontWeight.w900,
+                            height: 1.12,
                           ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 5),
                     Text(
                       module.subtitle,
-                      maxLines: 2,
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: foreground.withValues(alpha: 0.84),
                             fontWeight: FontWeight.w600,
+                            height: 1.18,
                           ),
                     ),
                   ],
