@@ -4707,17 +4707,27 @@ class AdBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const slotId = AdSenseSettings.displaySlotId;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 120),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: adsense.buildAdSenseSlot(
-        publisherId: AdSenseSettings.publisherId,
-        slotId: slotId,
+    final height = MediaQuery.sizeOf(context).width < 640 ? 100.0 : 120.0;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        height: height,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: adsense.buildAdSenseSlot(
+              publisherId: AdSenseSettings.publisherId,
+              slotId: slotId,
+              height: height - 16,
+            ),
+          ),
+        ),
       ),
     );
   }
