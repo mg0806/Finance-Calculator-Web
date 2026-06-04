@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'calculators.dart' as calc;
@@ -2087,6 +2088,14 @@ class _PlanTrackerState extends State<PlanTracker> {
   final paid = TextEditingController();
   final entries = <TrackingEntry>[];
   var trackedTotal = 0.0;
+  late final String storageKey;
+
+  @override
+  void initState() {
+    super.initState();
+    storageKey = 'plan_tracker_${_keyName(widget.key)}';
+    _loadEntries();
+  }
 
   @override
   void dispose() {
@@ -2284,6 +2293,7 @@ class _PlanTrackerState extends State<PlanTracker> {
       );
       paid.clear();
     });
+    _saveEntries();
   }
 
   void _resetTracker() {
@@ -2292,6 +2302,41 @@ class _PlanTrackerState extends State<PlanTracker> {
       entries.clear();
       paid.clear();
     });
+    _clearEntries();
+  }
+
+  Future<void> _loadEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList(storageKey) ?? const [];
+    final loaded = [
+      for (final row in saved)
+        if (TrackingEntry.tryParse(row) case final entry?) entry,
+    ];
+    if (!mounted || loaded.isEmpty) return;
+    setState(() {
+      entries
+        ..clear()
+        ..addAll(loaded);
+      trackedTotal = entries.fold(0.0, (total, entry) => total + entry.amount);
+    });
+  }
+
+  Future<void> _saveEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      storageKey,
+      [for (final entry in entries) entry.serialize()],
+    );
+  }
+
+  Future<void> _clearEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(storageKey);
+  }
+
+  String _keyName(Key? key) {
+    if (key is ValueKey<String>) return key.value;
+    return widget.title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
   }
 }
 
@@ -2372,6 +2417,16 @@ class TrackingEntry {
 
   final String label;
   final double amount;
+
+  static TrackingEntry? tryParse(String raw) {
+    final separator = raw.lastIndexOf('|');
+    if (separator <= 0 || separator == raw.length - 1) return null;
+    final amount = double.tryParse(raw.substring(separator + 1));
+    if (amount == null) return null;
+    return TrackingEntry(label: raw.substring(0, separator), amount: amount);
+  }
+
+  String serialize() => '$label|$amount';
 }
 
 class ResultTile extends StatelessWidget {
@@ -4134,7 +4189,8 @@ class MarketDesk extends StatelessWidget {
                   children: [
                     SectionLabel(title),
                     const SizedBox(height: 4),
-                    Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                    Text(subtitle,
+                        style: Theme.of(context).textTheme.bodySmall),
                   ],
                 ),
               ),
