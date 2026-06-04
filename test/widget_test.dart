@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:finance_calculator/main.dart';
@@ -7,6 +8,9 @@ void main() {
     await tester.pumpWidget(const FinanceCalculatorApp());
 
     expect(find.text('Calculate smarter.\nMove faster.'), findsOneWidget);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -420));
+    await tester.pumpAndSettle();
+
     expect(find.text('SIP calculator'), findsOneWidget);
     expect(find.text('EMI calculator'), findsOneWidget);
   });
@@ -15,6 +19,10 @@ void main() {
       (WidgetTester tester) async {
     await tester.pumpWidget(const FinanceCalculatorApp());
 
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -420));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('SIP calculator'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('SIP calculator'));
     await tester.pumpAndSettle();
 

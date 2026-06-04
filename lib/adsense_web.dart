@@ -10,19 +10,24 @@ var _adViewCounter = 0;
 Widget buildAdSenseSlot({
   required String publisherId,
   required String slotId,
+  required double height,
 }) {
   final viewType = 'adsense-slot-$slotId-${_adViewCounter++}';
+  final heightPx = '${height.round()}px';
 
   ui_web.platformViewRegistry.registerViewFactory(viewType, (viewId) {
     final container = html.DivElement()
       ..style.width = '100%'
-      ..style.minHeight = '120px';
+      ..style.height = heightPx
+      ..style.maxHeight = heightPx
+      ..style.overflow = 'hidden';
 
     final ad = html.Element.tag('ins') as html.HtmlElement
       ..classes.add('adsbygoogle')
       ..style.display = 'block'
       ..style.width = '100%'
-      ..style.minHeight = '120px'
+      ..style.height = heightPx
+      ..style.maxHeight = heightPx
       ..setAttribute('data-ad-client', publisherId)
       ..setAttribute('data-ad-slot', slotId)
       ..setAttribute('data-ad-format', 'auto')
@@ -42,5 +47,5 @@ Widget buildAdSenseSlot({
     return container;
   });
 
-  return HtmlElementView(viewType: viewType);
+  return SizedBox(height: height, child: HtmlElementView(viewType: viewType));
 }

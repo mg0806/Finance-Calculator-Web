@@ -99,7 +99,7 @@ class FinanceCalculatorApp extends StatelessWidget {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Finance Calculator',
+      title: 'YieldWise',
       theme: ThemeData(
         colorScheme: scheme,
         useMaterial3: true,
@@ -314,50 +314,118 @@ class DashboardHero extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
-            ),
-            child: const Text(
-              'India money toolkit',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Calculate smarter.\nMove faster.',
-            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  height: 1.02,
-                ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'SIP, EMI, GST, retirement, eligibility, and loan comparison with crisp results built for action.',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.90),
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          const SizedBox(height: 18),
-          const Wrap(
-            spacing: 8,
-            runSpacing: 8,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 860;
+          final copy = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              HeroMetric(label: '13 tools', icon: Icons.grid_view),
-              HeroMetric(label: 'Local first', icon: Icons.lock_outline),
-              HeroMetric(label: 'Web ready', icon: Icons.public),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(999),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.30)),
+                ),
+                child: const Text(
+                  'Financial planning toolkit',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w800),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'Calculate smarter.\nMove faster.',
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      height: 1.02,
+                    ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'SIP, EMI, GST, retirement, eligibility, and loan comparison with crisp results built for action.',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.90),
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(height: 18),
+              const Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  HeroMetric(label: '13 tools', icon: Icons.grid_view),
+                  HeroMetric(label: 'Local first', icon: Icons.lock_outline),
+                  HeroMetric(label: 'Web ready', icon: Icons.public),
+                ],
+              ),
             ],
+          );
+
+          if (!wide) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: YieldWiseLogoCard(width: constraints.maxWidth),
+                ),
+                const SizedBox(height: 16),
+                copy,
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(flex: 5, child: copy),
+              const SizedBox(width: 28),
+              const Expanded(
+                flex: 5,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: YieldWiseLogoCard(width: 560),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class YieldWiseLogoCard extends StatelessWidget {
+  const YieldWiseLogoCard({required this.width, super.key});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final cardWidth = width.clamp(260.0, 560.0);
+    return Container(
+      width: cardWidth,
+      height: cardWidth * 0.32,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF032B22).withValues(alpha: 0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
         ],
+      ),
+      child: Image.asset(
+        'web/assets/yieldwise-wordmark.png',
+        fit: BoxFit.contain,
+        semanticLabel: 'YieldWise Financial Calculators logo',
       ),
     );
   }
@@ -4707,17 +4775,27 @@ class AdBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const slotId = AdSenseSettings.displaySlotId;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 120),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: adsense.buildAdSenseSlot(
-        publisherId: AdSenseSettings.publisherId,
-        slotId: slotId,
+    final height = MediaQuery.sizeOf(context).width < 640 ? 100.0 : 120.0;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        height: height,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: adsense.buildAdSenseSlot(
+              publisherId: AdSenseSettings.publisherId,
+              slotId: slotId,
+              height: height - 16,
+            ),
+          ),
+        ),
       ),
     );
   }
