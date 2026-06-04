@@ -32,9 +32,7 @@ class AdSenseSettings {
 
   static const publisherId = 'ca-pub-8210570961045499';
 
-  // Create an AdSense Display ad unit and paste its numeric slot ID here.
-  // The publisher script and Auto ads are already active in web/*.html.
-  static const String? displaySlotId = null;
+  static const displaySlotId = '6356348339';
 }
 
 class AffiliateOffer {
@@ -4709,10 +4707,6 @@ class AdBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const slotId = AdSenseSettings.displaySlotId;
-    if (slotId == null || slotId.trim().isEmpty) {
-      return const AdPreview();
-    }
-
     return Container(
       constraints: const BoxConstraints(minHeight: 120),
       padding: const EdgeInsets.all(8),
