@@ -1,11 +1,11 @@
 {
-    "name": "Finance Calculator India",
-    "short_name": "Finance Calculator",
+    "name": "YieldWise Finance Calculators",
+    "short_name": "YieldWise",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Free SIP, EMI, loan, FD, GST, PPF, CAGR, inflation, and retirement calculators.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

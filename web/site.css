@@ -24,3 +24,17 @@ a {
   color: #087a5d;
   font-weight: 700;
 }
+
+.button {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 10px 14px;
+  color: #ffffff;
+  background: #087a5d;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+ul {
+  padding-left: 22px;
+}
