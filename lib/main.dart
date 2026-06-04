@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'adsense_stub.dart' if (dart.library.html) 'adsense_web.dart' as adsense;
 import 'calculators.dart' as calc;
 
 void main() {
@@ -24,6 +25,16 @@ class AffiliateSettings {
   const AffiliateSettings._();
 
   static const enabled = false;
+}
+
+class AdSenseSettings {
+  const AdSenseSettings._();
+
+  static const publisherId = 'ca-pub-8210570961045499';
+
+  // Create an AdSense Display ad unit and paste its numeric slot ID here.
+  // The publisher script and Auto ads are already active in web/*.html.
+  static const String? displaySlotId = null;
 }
 
 class AffiliateOffer {
@@ -4697,7 +4708,24 @@ class AdBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AdPreview();
+    const slotId = AdSenseSettings.displaySlotId;
+    if (slotId == null || slotId.trim().isEmpty) {
+      return const AdPreview();
+    }
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 120),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: adsense.buildAdSenseSlot(
+        publisherId: AdSenseSettings.publisherId,
+        slotId: slotId,
+      ),
+    );
   }
 }
 
@@ -4828,7 +4856,7 @@ class AdPreview extends StatelessWidget {
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
-              'AdSense display slot reserved for web monetization',
+              'AdSense Auto ads active. Add display slot ID for this banner.',
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: Colors.white,
