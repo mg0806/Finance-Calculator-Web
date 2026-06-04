@@ -1,0 +1,22 @@
+{
+  "buildCommand": "flutter build web --release",
+  "outputDirectory": "build/web",
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/((?!privacy.html|terms.html|disclaimer.html|affiliate-disclosure.html|contact.html|favicon.png|manifest.json|icons/.*|assets/.*|canvaskit/.*|flutter.*|main.dart.js).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    }
+  ]
+}
