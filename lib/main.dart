@@ -6,6 +6,23 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'adsense_stub.dart' if (dart.library.html) 'adsense_web.dart' as adsense;
 import 'calculators.dart' as calc;
+import 'pages/about_page.dart';
+import 'pages/articles/cagr_explained_page.dart';
+import 'pages/articles/fd_vs_sip_page.dart';
+import 'pages/articles/home_loan_guide_page.dart';
+import 'pages/articles/ppf_guide_page.dart';
+import 'pages/articles/reduce_emi_page.dart';
+import 'pages/articles/retirement_at_40_page.dart';
+import 'pages/articles/sip_vs_lumpsum_page.dart';
+import 'pages/articles/tax_saving_80c_page.dart';
+import 'pages/blog_index_page.dart';
+import 'pages/contact_page.dart';
+import 'pages/home_page.dart';
+import 'pages/privacy_policy_page.dart';
+import 'pages/terms_page.dart';
+import 'widgets/app_drawer.dart';
+import 'widgets/yieldwise_footer.dart';
+import 'widgets/yieldwise_side_nav.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -125,24 +142,103 @@ class FinanceCalculatorApp extends StatelessWidget {
           fillColor: const Color(0xFFFBFFFC),
         ),
       ),
-      home: const AppShell(),
+      initialRoute: '/home',
+      onGenerateRoute: _generateRoute,
     );
+  }
+
+  Route<dynamic> _generateRoute(RouteSettings settings) {
+    final name = settings.name ?? '/home';
+    final page = switch (name) {
+      '/' || '/home' => const HomePage(),
+      '/about' => const AboutPage(),
+      '/privacy-policy' => const PrivacyPolicyPage(),
+      '/terms' => const TermsPage(),
+      '/contact' => const ContactPage(),
+      '/blog' => const BlogIndexPage(),
+      '/blog/sip-vs-lumpsum' => const SipVsLumpsumPage(),
+      '/blog/how-to-reduce-emi' => const ReduceEmiPage(),
+      '/blog/fd-vs-sip' => const FdVsSipPage(),
+      '/blog/home-loan-guide' => const HomeLoanGuidePage(),
+      '/blog/retirement-at-40' => const RetirementAt40Page(),
+      '/blog/ppf-complete-guide' => const PpfGuidePage(),
+      '/blog/cagr-explained' => const CagrExplainedPage(),
+      '/blog/tax-saving-80c' => const TaxSaving80cPage(),
+      '/calculators' => const AppShell(),
+      '/sip-calculator' => const AppShell(initialIndex: 1),
+      '/emi-calculator' => const AppShell(initialIndex: 2),
+      '/mortgage-calculator' => const AppShell(initialIndex: 3),
+      '/fd-calculator' ||
+      '/lumpsum-calculator' =>
+        const AppShell(initialIndex: 4),
+      '/ppf-calculator' => const AppShell(initialIndex: 5),
+      '/cagr-calculator' => const AppShell(initialIndex: 6),
+      '/inflation-calculator' => const AppShell(initialIndex: 7),
+      '/gst-calculator' => const AppShell(initialIndex: 8),
+      '/loan-calculator' => const AppShell(initialIndex: 9),
+      '/retirement-calculator' => const AppShell(initialIndex: 10),
+      '/step-up-sip-calculator' => const AppShell(initialIndex: 11),
+      '/loan-eligibility-calculator' => const AppShell(initialIndex: 12),
+      _ => const HomePage(),
+    };
+    return MaterialPageRoute(builder: (_) => page, settings: settings);
   }
 }
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({this.initialIndex = 0, super.key});
+
+  final int initialIndex;
 
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
 class _AppShellState extends State<AppShell> {
-  var selectedIndex = 0;
+  late var selectedIndex = widget.initialIndex;
 
   void _openModule(int index) {
     if (index == selectedIndex) return;
     setState(() => selectedIndex = index);
+  }
+
+  String _routeForModule(int index) {
+    return switch (modules[index].id) {
+      'home' => '/calculators',
+      'sip' => '/sip-calculator',
+      'emi' => '/emi-calculator',
+      'mortgage' => '/mortgage-calculator',
+      'lumpsum' => '/fd-calculator',
+      'ppf' => '/ppf-calculator',
+      'cagr' => '/cagr-calculator',
+      'inflation' => '/inflation-calculator',
+      'gst' => '/gst-calculator',
+      'loan_compare' => '/loan-calculator',
+      'retirement' => '/retirement-calculator',
+      'step_up_sip' => '/step-up-sip-calculator',
+      'loan_eligibility' => '/loan-eligibility-calculator',
+      _ => '/calculators',
+    };
+  }
+
+  void _openCalculatorRoute(String route) {
+    final index = switch (route) {
+      '/calculators' => 0,
+      '/sip-calculator' => 1,
+      '/emi-calculator' => 2,
+      '/mortgage-calculator' => 3,
+      '/fd-calculator' || '/lumpsum-calculator' => 4,
+      '/ppf-calculator' => 5,
+      '/cagr-calculator' => 6,
+      '/inflation-calculator' => 7,
+      '/gst-calculator' => 8,
+      '/loan-calculator' => 9,
+      '/retirement-calculator' => 10,
+      '/step-up-sip-calculator' => 11,
+      '/loan-eligibility-calculator' => 12,
+      _ => 0,
+    };
+    _openModule(index);
   }
 
   @override
@@ -154,31 +250,25 @@ class _AppShellState extends State<AppShell> {
         : CalculatorScreen(module: item);
 
     return Scaffold(
+      appBar: wide
+          ? null
+          : AppBar(
+              leading: Builder(
+                builder: (context) => IconButton(
+                  tooltip: 'Menu',
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
+              title: const Text('YieldWise'),
+            ),
+      drawer: wide ? null : const AppDrawer(),
       body: Row(
         children: [
           if (wide)
-            NavigationRail(
-              selectedIndex: selectedIndex,
-              onDestinationSelected: _openModule,
-              labelType: NavigationRailLabelType.all,
-              minWidth: 96,
-              groupAlignment: -0.92,
-              scrollable: true,
-              destinations: [
-                for (final module in modules)
-                  NavigationRailDestination(
-                    icon: Icon(module.icon),
-                    label: SizedBox(
-                      width: 76,
-                      child: Text(
-                        module.shortTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-              ],
+            YieldWiseSideNav(
+              selectedCalculatorRoute: _routeForModule(selectedIndex),
+              onCalculatorRouteSelected: _openCalculatorRoute,
             ),
           Expanded(
             child: SafeArea(
@@ -192,26 +282,31 @@ class _AppShellState extends State<AppShell> {
       ),
       bottomNavigationBar: wide
           ? null
-          : NavigationBar(
-              selectedIndex: min(selectedIndex, 4),
-              onDestinationSelected: (index) {
-                if (index == 4) {
-                  _showModulePicker(context);
-                } else {
-                  _openModule(index);
-                }
-              },
-              destinations: const [
-                NavigationDestination(
-                    icon: Icon(Icons.home_outlined), label: 'Home'),
-                NavigationDestination(
-                    icon: Icon(Icons.trending_up), label: 'SIP'),
-                NavigationDestination(
-                    icon: Icon(Icons.credit_card), label: 'EMI'),
-                NavigationDestination(
-                    icon: Icon(Icons.receipt_long), label: 'GST'),
-                NavigationDestination(
-                    icon: Icon(Icons.grid_view), label: 'More'),
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                NavigationBar(
+                  selectedIndex: min(selectedIndex, 4),
+                  onDestinationSelected: (index) {
+                    if (index == 4) {
+                      _showModulePicker(context);
+                    } else {
+                      _openModule(index);
+                    }
+                  },
+                  destinations: const [
+                    NavigationDestination(
+                        icon: Icon(Icons.home_outlined), label: 'Home'),
+                    NavigationDestination(
+                        icon: Icon(Icons.trending_up), label: 'SIP'),
+                    NavigationDestination(
+                        icon: Icon(Icons.credit_card), label: 'EMI'),
+                    NavigationDestination(
+                        icon: Icon(Icons.receipt_long), label: 'GST'),
+                    NavigationDestination(
+                        icon: Icon(Icons.grid_view), label: 'More'),
+                  ],
+                ),
               ],
             ),
     );
@@ -287,6 +382,7 @@ class HomeDashboard extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         const AdBanner(),
+        const YieldWiseFooter(),
       ],
     );
   }
@@ -369,9 +465,9 @@ class DashboardHero extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Align(
+                const Align(
                   alignment: Alignment.centerRight,
-                  child: YieldWiseLogoCard(width: constraints.maxWidth),
+                  child: DashboardMotif(),
                 ),
                 const SizedBox(height: 16),
                 copy,
@@ -387,7 +483,7 @@ class DashboardHero extends StatelessWidget {
                 flex: 5,
                 child: Align(
                   alignment: Alignment.centerRight,
-                  child: YieldWiseLogoCard(width: 560),
+                  child: DashboardMotif(),
                 ),
               ),
             ],
@@ -398,34 +494,36 @@ class DashboardHero extends StatelessWidget {
   }
 }
 
-class YieldWiseLogoCard extends StatelessWidget {
-  const YieldWiseLogoCard({required this.width, super.key});
-
-  final double width;
+class DashboardMotif extends StatelessWidget {
+  const DashboardMotif({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final cardWidth = width.clamp(260.0, 560.0);
-    return Container(
-      width: cardWidth,
-      height: cardWidth * 0.32,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF032B22).withValues(alpha: 0.18),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
+    return SizedBox(
+      width: 260,
+      child: Wrap(
+        spacing: 14,
+        runSpacing: 14,
+        children: [
+          for (final icon in const [
+            Icons.currency_rupee,
+            Icons.show_chart,
+            Icons.savings,
+            Icons.pie_chart,
+            Icons.account_balance,
+            Icons.trending_up,
+          ])
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.38)),
+              ),
+              child: Icon(icon, color: const Color(0xFF064D3E), size: 28),
+            ),
         ],
-      ),
-      child: Image.asset(
-        'web/assets/yieldwise-wordmark.png',
-        fit: BoxFit.contain,
-        semanticLabel: 'YieldWise Financial Calculators logo',
       ),
     );
   }
@@ -704,6 +802,7 @@ class CalculatorScreen extends StatelessWidget {
         ],
         const SizedBox(height: 16),
         const AdBanner(),
+        const YieldWiseFooter(),
       ],
     );
   }
@@ -1019,26 +1118,36 @@ class _MortgageCalculatorState extends State<MortgageCalculator> {
         children: [
           MortgageSummary(result: result),
           const SizedBox(height: 16),
-          IndianRateComparisonPanel(
-            city: city,
-            cibilBand: cibilBand,
-            employmentType: employmentType,
-            loanPurpose: loanPurpose,
-            sort: rateSort,
-            loanAmount: result.loanAmount,
-            years: max(1, value(years).round()),
-            ltvPercent: result.homePrice <= 0
-                ? 0
-                : result.loanAmount / result.homePrice * 100,
-            onCityChanged: refresh,
-            onCibilChanged: (next) => setState(() => cibilBand = next),
-            onEmploymentChanged: (next) =>
-                setState(() => employmentType = next),
-            onPurposeChanged: (next) => setState(() => loanPurpose = next),
-            onSortChanged: (next) => setState(() => rateSort = next),
+          CalculatorExpansionPanel(
+            title: 'Indian Home Loan Rate Desk',
+            subtitle: 'Compare indicative bank and HFC offers',
+            icon: Icons.account_balance,
+            child: IndianRateComparisonPanel(
+              city: city,
+              cibilBand: cibilBand,
+              employmentType: employmentType,
+              loanPurpose: loanPurpose,
+              sort: rateSort,
+              loanAmount: result.loanAmount,
+              years: max(1, value(years).round()),
+              ltvPercent: result.homePrice <= 0
+                  ? 0
+                  : result.loanAmount / result.homePrice * 100,
+              onCityChanged: refresh,
+              onCibilChanged: (next) => setState(() => cibilBand = next),
+              onEmploymentChanged: (next) =>
+                  setState(() => employmentType = next),
+              onPurposeChanged: (next) => setState(() => loanPurpose = next),
+              onSortChanged: (next) => setState(() => rateSort = next),
+            ),
           ),
           const SizedBox(height: 16),
-          AnnualAmortisationPreview(rows: schedule),
+          CalculatorExpansionPanel(
+            title: 'Annual Amortisation Schedule',
+            subtitle: 'Year-by-year interest, principal, and balance',
+            icon: Icons.table_chart_outlined,
+            child: AnnualAmortisationPreview(rows: schedule),
+          ),
           const SizedBox(height: 12),
           const AffiliatePanel(offer: AffiliateOffers.loan),
         ],
@@ -3389,8 +3498,6 @@ class IndianRateComparisonPanel extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SectionLabel('Indian Home Loan Rate Desk'),
-                    const SizedBox(height: 4),
                     Text(
                       'Compare indicative bank and HFC offers for ${city.text.trim().isEmpty ? 'your city' : city.text.trim()}',
                       style: Theme.of(context).textTheme.bodySmall,
@@ -3944,8 +4051,6 @@ class AnnualAmortisationPreview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SectionLabel('Annual Amortisation Schedule'),
-        const SizedBox(height: 8),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
@@ -3969,6 +4074,47 @@ class AnnualAmortisationPreview extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class CalculatorExpansionPanel extends StatelessWidget {
+  const CalculatorExpansionPanel({
+    required this.title,
+    required this.child,
+    this.subtitle,
+    this.icon = Icons.expand_more,
+    this.initiallyExpanded = false,
+    super.key,
+  });
+
+  final String title;
+  final String? subtitle;
+  final IconData icon;
+  final bool initiallyExpanded;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: initiallyExpanded,
+          leading: Icon(icon, color: theme.colorScheme.primary),
+          title: Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          subtitle: subtitle == null ? null : Text(subtitle!),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          children: [child],
+        ),
+      ),
     );
   }
 }
