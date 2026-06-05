@@ -58,7 +58,7 @@ class _TermsPageState extends State<TermsPage> {
       ],
       [
         '9. Governing Law',
-        'These terms are governed by the laws of India. Any disputes shall be subject to the jurisdiction of courts in [your city], India.'
+        'These terms are governed by the laws of India. Any disputes shall be subject to the jurisdiction of courts in Vadodara, Gujarat, India.'
       ],
       [
         '10. Contact',

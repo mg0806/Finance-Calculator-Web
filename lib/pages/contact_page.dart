@@ -40,7 +40,7 @@ class _ContactPageState extends State<ContactPage> {
     if (!_formKey.currentState!.validate()) return;
     final uri = Uri(
       scheme: 'mailto',
-      path: 'contact@yieldwise.online',
+      path: 'manohargupta0806@gmail.com',
       queryParameters: {
         'subject': 'YieldWise contact from ${_name.text.trim()}',
         'body':
@@ -139,7 +139,7 @@ class _ContactPageState extends State<ContactPage> {
               Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.email_outlined),
                 SizedBox(width: 8),
-                Text('Email: contact@yieldwise.online')
+                Text('Email: manohargupta0806@gmail.com')
               ]),
               Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.public),

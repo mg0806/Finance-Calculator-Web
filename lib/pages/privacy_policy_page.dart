@@ -48,7 +48,7 @@ class _PrivacyPolicyPageState extends State<PrivacyPolicyPage> {
         ],
         [
           '5. Affiliate Disclosure',
-          'YieldWise participates in affiliate marketing programs, including CueLinks. This means some links on our website may be affiliate links. If you click on an affiliate link and make a purchase, we may earn a commission at no additional cost to you. Affiliate relationships do not influence the content, tools, or recommendations on this website. We only link to products and services we believe are useful to our readers.'
+          'YieldWise participates in affiliate marketing programs, including CueLinks. This means some links on our website may be affiliate links. If you click on an affiliate link and make a purchase, we may earn a commission at no additional cost to you. CueLinks may process affiliate tracking data for attribution, but it does not intentionally collect or store personally identifiable information from users of this website. Affiliate relationships do not influence the content, tools, or recommendations on this website. We only link to products and services we believe are useful to our readers.'
         ],
         [
           '6. Third-Party Services',
@@ -68,7 +68,7 @@ class _PrivacyPolicyPageState extends State<PrivacyPolicyPage> {
         ],
         [
           '10. Contact',
-          'For privacy-related queries, contact us at: contact@yieldwise.online or via the Contact page at yieldwise.online/contact'
+          'For privacy-related queries, contact us at: manohargupta0806@gmail.com or via the Contact page at yieldwise.online/contact'
         ],
       ],
     );
