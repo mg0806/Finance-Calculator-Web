@@ -1,5 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 
 import '../seo_service.dart';
 import '../widgets/yieldwise_footer.dart';
@@ -18,6 +20,7 @@ class _ContactPageState extends State<ContactPage> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _message = TextEditingController();
+  var _isSending = false;
 
   @override
   void initState() {
@@ -38,24 +41,47 @@ class _ContactPageState extends State<ContactPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    final uri = Uri(
-      scheme: 'mailto',
-      path: 'manohargupta0806@gmail.com',
-      queryParameters: {
-        'subject': 'YieldWise contact from ${_name.text.trim()}',
-        'body':
-            'Name: ${_name.text.trim()}\nEmail: ${_email.text.trim()}\n\n${_message.text.trim()}',
-      },
-    );
-    final opened = await launchUrl(uri);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(opened
-            ? "Message sent! We'll get back to you within 24 hours."
-            : 'Could not open your email app.'),
-      ),
-    );
+    setState(() => _isSending = true);
+    try {
+      final response = await http.post(
+        Uri.base.resolve('/api/contact'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'name': _name.text.trim(),
+          'email': _email.text.trim(),
+          'message': _message.text.trim(),
+        }),
+      );
+
+      if (!mounted) return;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        _formKey.currentState!.reset();
+        _name.clear();
+        _email.clear();
+        _message.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text("Message sent! We'll get back to you within 24 hours."),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not send your message. Please try again.'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not send your message. Please try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
   }
 
   @override
@@ -121,9 +147,17 @@ class _ContactPageState extends State<ContactPage> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: ElevatedButton.icon(
-                            onPressed: _submit,
-                            icon: const Icon(Icons.send_outlined),
-                            label: const Text('Send Message')),
+                            onPressed: _isSending ? null : _submit,
+                            icon: _isSending
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.send_outlined),
+                            label: Text(
+                                _isSending ? 'Sending...' : 'Send Message')),
                       ),
                     ],
                   ),
