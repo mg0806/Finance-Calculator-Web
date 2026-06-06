@@ -89,6 +89,9 @@ class YieldWiseTopNav extends StatelessWidget {
             onPressed: () => goNamed(context, '/blog'),
             child: const Text('Blog')),
         TextButton(
+            onPressed: () => goNamed(context, '/news'),
+            child: const Text('News')),
+        TextButton(
             onPressed: () => goNamed(context, '/about'),
             child: const Text('About')),
         TextButton(

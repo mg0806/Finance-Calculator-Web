@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/article_model.dart';
 import '../navigation.dart';
 import '../seo_service.dart';
+import '../widgets/live_finance_news.dart';
 import '../widgets/yieldwise_footer.dart';
 import '../widgets/yieldwise_page_scaffold.dart';
 
@@ -69,6 +70,8 @@ class _HomePageState extends State<HomePage> {
               );
             },
           ),
+          const SizedBox(height: 26),
+          const LiveFinanceNews(pageSize: 9),
           const SizedBox(height: 22),
           const Wrap(
             spacing: 14,

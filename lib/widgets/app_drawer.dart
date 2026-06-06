@@ -44,6 +44,8 @@ class AppDrawer extends StatelessWidget {
                 label: 'Blog & Articles',
                 route: '/blog'),
             const _DrawerLink(
+                icon: Icons.newspaper_outlined, label: 'News', route: '/news'),
+            const _DrawerLink(
                 icon: Icons.info_outline, label: 'About', route: '/about'),
             const _DrawerLink(
                 icon: Icons.mail_outline, label: 'Contact', route: '/contact'),

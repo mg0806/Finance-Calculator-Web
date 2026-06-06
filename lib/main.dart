@@ -18,6 +18,7 @@ import 'pages/articles/tax_saving_80c_page.dart';
 import 'pages/blog_index_page.dart';
 import 'pages/contact_page.dart';
 import 'pages/home_page.dart';
+import 'pages/news_page.dart';
 import 'pages/privacy_policy_page.dart';
 import 'pages/terms_page.dart';
 import 'widgets/app_drawer.dart';
@@ -155,6 +156,7 @@ class FinanceCalculatorApp extends StatelessWidget {
       '/privacy-policy' => const PrivacyPolicyPage(),
       '/terms' => const TermsPage(),
       '/contact' => const ContactPage(),
+      '/news' => const NewsPage(),
       '/blog' => const BlogIndexPage(),
       '/blog/sip-vs-lumpsum' => const SipVsLumpsumPage(),
       '/blog/how-to-reduce-emi' => const ReduceEmiPage(),

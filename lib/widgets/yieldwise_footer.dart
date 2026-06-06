@@ -125,6 +125,7 @@ class YieldWiseFooter extends StatelessWidget {
                 title: 'COMPANY',
                 links: [
                   _FooterLinkData('Home', '/home'),
+                  _FooterLinkData('News', '/news'),
                   _FooterLinkData('About Us', '/about'),
                   _FooterLinkData('Contact', '/contact'),
                   _FooterLinkData('Privacy Policy', '/privacy-policy'),

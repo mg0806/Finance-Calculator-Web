@@ -50,6 +50,12 @@ class _YieldWiseSideNavState extends State<YieldWiseSideNav> {
               onTap: () => goNamed(context, '/blog'),
             ),
             _NavItem(
+              icon: Icons.newspaper_outlined,
+              label: 'News',
+              selected: route == '/news',
+              onTap: () => goNamed(context, '/news'),
+            ),
+            _NavItem(
               icon: Icons.info_outline,
               label: 'About',
               selected: route == '/about',
