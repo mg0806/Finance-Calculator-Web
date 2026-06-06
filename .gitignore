@@ -7,6 +7,8 @@
 build/
 coverage/
 *.log
+.env
+.env.*
 android_current*.png
 android_screen*.png
 
