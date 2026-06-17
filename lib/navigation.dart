@@ -61,11 +61,6 @@ const calculatorNavItems = <CalculatorNavItem>[
       icon: Icons.elderly,
       description: 'Corpus and SIP required'),
   CalculatorNavItem(
-      title: 'Step-up SIP Calculator',
-      route: '/step-up-sip-calculator',
-      icon: Icons.stacked_line_chart,
-      description: 'Annual SIP increase and extra corpus'),
-  CalculatorNavItem(
       title: 'Mortgage Calculator',
       route: '/mortgage-calculator',
       icon: Icons.house_outlined,

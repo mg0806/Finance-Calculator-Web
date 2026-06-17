@@ -33,6 +33,71 @@ double futureValueStepUpSip({
   return corpus;
 }
 
+double totalInvestedSip({
+  required double monthlyInvestment,
+  required double annualStepUpPercent,
+  required int years,
+}) {
+  var invested = 0.0;
+  var sip = monthlyInvestment;
+
+  for (var year = 0; year < years; year++) {
+    invested += sip * 12;
+    sip *= 1 + annualStepUpPercent / 100;
+  }
+
+  return invested;
+}
+
+double requiredStepUpSipForGoal({
+  required double goal,
+  required double annualReturnPercent,
+  required double annualStepUpPercent,
+  required int years,
+}) {
+  final unitCorpus = futureValueStepUpSip(
+    monthlyInvestment: 1,
+    annualReturnPercent: annualReturnPercent,
+    annualStepUpPercent: annualStepUpPercent,
+    years: years,
+  );
+  if (unitCorpus <= 0) return 0;
+  return goal / unitCorpus;
+}
+
+List<SipYearRow> sipYearBreakdown({
+  required double monthlyInvestment,
+  required double annualReturnPercent,
+  required double annualStepUpPercent,
+  required int years,
+  required double inflationPercent,
+}) {
+  final rate = monthlyRate(annualReturnPercent);
+  var corpus = 0.0;
+  var sip = monthlyInvestment;
+  var invested = 0.0;
+  final rows = <SipYearRow>[];
+
+  for (var year = 1; year <= years; year++) {
+    for (var month = 0; month < 12; month++) {
+      corpus = (corpus + sip) * (1 + rate);
+      invested += sip;
+    }
+    rows.add(
+      SipYearRow(
+        year: year,
+        monthlySip: sip,
+        invested: invested,
+        corpus: corpus,
+        realCorpus: corpus / pow(1 + inflationPercent / 100, year),
+      ),
+    );
+    sip *= 1 + annualStepUpPercent / 100;
+  }
+
+  return rows;
+}
+
 double emi({
   required double principal,
   required double annualRatePercent,
@@ -365,4 +430,22 @@ class RetirementResult {
   final double corpusNeeded;
   final double monthlySipRequired;
   final double futureMonthlyExpense;
+}
+
+class SipYearRow {
+  const SipYearRow({
+    required this.year,
+    required this.monthlySip,
+    required this.invested,
+    required this.corpus,
+    required this.realCorpus,
+  });
+
+  final int year;
+  final double monthlySip;
+  final double invested;
+  final double corpus;
+  final double realCorpus;
+
+  double get wealthGain => corpus - invested;
 }
