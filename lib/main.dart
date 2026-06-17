@@ -177,8 +177,9 @@ class FinanceCalculatorApp extends StatelessWidget {
       '/gst-calculator' => const AppShell(initialIndex: 8),
       '/loan-calculator' => const AppShell(initialIndex: 9),
       '/retirement-calculator' => const AppShell(initialIndex: 10),
-      '/step-up-sip-calculator' => const AppShell(initialIndex: 11),
-      '/loan-eligibility-calculator' => const AppShell(initialIndex: 12),
+      '/step-up-sip-calculator' =>
+        const AppShell(initialIndex: 1, initialStepUpSip: true),
+      '/loan-eligibility-calculator' => const AppShell(initialIndex: 11),
       _ => const HomePage(),
     };
     return MaterialPageRoute(builder: (_) => page, settings: settings);
@@ -186,9 +187,14 @@ class FinanceCalculatorApp extends StatelessWidget {
 }
 
 class AppShell extends StatefulWidget {
-  const AppShell({this.initialIndex = 0, super.key});
+  const AppShell({
+    this.initialIndex = 0,
+    this.initialStepUpSip = false,
+    super.key,
+  });
 
   final int initialIndex;
+  final bool initialStepUpSip;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -215,7 +221,6 @@ class _AppShellState extends State<AppShell> {
       'gst' => '/gst-calculator',
       'loan_compare' => '/loan-calculator',
       'retirement' => '/retirement-calculator',
-      'step_up_sip' => '/step-up-sip-calculator',
       'loan_eligibility' => '/loan-eligibility-calculator',
       _ => '/calculators',
     };
@@ -234,8 +239,8 @@ class _AppShellState extends State<AppShell> {
       '/gst-calculator' => 8,
       '/loan-calculator' => 9,
       '/retirement-calculator' => 10,
-      '/step-up-sip-calculator' => 11,
-      '/loan-eligibility-calculator' => 12,
+      '/step-up-sip-calculator' => 1,
+      '/loan-eligibility-calculator' => 11,
       _ => 0,
     };
     _openModule(index);
@@ -247,7 +252,12 @@ class _AppShellState extends State<AppShell> {
     final item = modules[selectedIndex];
     final page = selectedIndex == 0
         ? HomeDashboard(onOpen: _openModule)
-        : CalculatorScreen(module: item);
+        : CalculatorScreen(
+            module: item,
+            childOverride: selectedIndex == 1 && widget.initialStepUpSip
+                ? const SipCalculator(initialStepUp: true)
+                : null,
+          );
 
     return Scaffold(
       appBar: wide
@@ -745,11 +755,6 @@ List<IconData> moduleGlyphs(String id) {
         Icons.health_and_safety_outlined,
         Icons.event_available,
       ],
-    'step_up_sip' => const [
-        Icons.stacked_line_chart,
-        Icons.add_circle_outline,
-        Icons.trending_up,
-      ],
     'loan_eligibility' => const [
         Icons.badge_outlined,
         Icons.home_work_outlined,
@@ -764,9 +769,10 @@ List<IconData> moduleGlyphs(String id) {
 }
 
 class CalculatorScreen extends StatelessWidget {
-  const CalculatorScreen({required this.module, super.key});
+  const CalculatorScreen({required this.module, this.childOverride, super.key});
 
   final FinanceModule module;
+  final Widget? childOverride;
 
   @override
   Widget build(BuildContext context) {
@@ -795,7 +801,7 @@ class CalculatorScreen extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        module.builder(context),
+        childOverride ?? module.builder(context),
         if (module.faqs.isNotEmpty) ...[
           const SizedBox(height: 24),
           FAQSection(faqs: module.faqs),
@@ -809,7 +815,9 @@ class CalculatorScreen extends StatelessWidget {
 }
 
 class SipCalculator extends StatefulWidget {
-  const SipCalculator({super.key});
+  const SipCalculator({this.initialStepUp = false, super.key});
+
+  final bool initialStepUp;
 
   @override
   State<SipCalculator> createState() => _SipCalculatorState();
@@ -817,68 +825,302 @@ class SipCalculator extends StatefulWidget {
 
 class _SipCalculatorState extends State<SipCalculator> {
   final amount = TextEditingController(text: '10000');
+  final target = TextEditingController(text: '5000000');
   final rate = TextEditingController(text: '12');
   final years = TextEditingController(text: '15');
+  final step = TextEditingController(text: '10');
+  final inflation = TextEditingController(text: '6');
+  final expenseRatio = TextEditingController(text: '0.5');
+  final ltcgExemption = TextEditingController(text: '125000');
+  final ltcgRate = TextEditingController(text: '12.5');
+  late var stepUpEnabled = widget.initialStepUp;
+  var advancedOpen = false;
+  var ltcgEnabled = false;
+  var tableOpen = false;
+  var mode = SipMode.corpus;
+  var scenarioMode = SipScenarioMode.single;
+
+  @override
+  void dispose() {
+    amount.dispose();
+    target.dispose();
+    rate.dispose();
+    years.dispose();
+    step.dispose();
+    inflation.dispose();
+    expenseRatio.dispose();
+    ltcgExemption.dispose();
+    ltcgRate.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final monthly = value(amount);
-    final term = value(years).round();
-    final invested = monthly * term * 12;
-    final maturity = calc.futureValueSip(
-      monthlyInvestment: monthly,
-      annualReturnPercent: value(rate),
+    final term = max(1, value(years).round());
+    final annualReturn = value(rate);
+    final ter = value(expenseRatio).clamp(0, 3).toDouble();
+    final netReturn = max(0, annualReturn - ter).toDouble();
+    final stepPercent = stepUpEnabled ? value(step) : 0.0;
+    final inflationRate = value(inflation).clamp(0, 15).toDouble();
+    final goal = value(target);
+    final startingSip = mode == SipMode.requiredSip
+        ? (stepUpEnabled
+            ? calc.requiredStepUpSipForGoal(
+                goal: goal,
+                annualReturnPercent: netReturn,
+                annualStepUpPercent: stepPercent,
+                years: term,
+              )
+            : calc.requiredSipForGoal(
+                goal: goal,
+                annualReturnPercent: netReturn,
+                years: term,
+              ))
+        : value(amount);
+    final maturity = _sipCorpus(startingSip, netReturn, stepPercent, term);
+    final invested = calc.totalInvestedSip(
+      monthlyInvestment: startingSip,
+      annualStepUpPercent: stepPercent,
       years: term,
     );
+    final realCorpus = _realCorpus(maturity, inflationRate, term);
+    final tax = ltcgEnabled
+        ? max(
+              0,
+              maturity - invested - value(ltcgExemption),
+            ) *
+            value(ltcgRate) /
+            100
+        : 0.0;
+    final postTaxCorpus = maturity - tax;
+    final rows = calc.sipYearBreakdown(
+      monthlyInvestment: startingSip,
+      annualReturnPercent: netReturn,
+      annualStepUpPercent: stepPercent,
+      years: term,
+      inflationPercent: inflationRate,
+    );
+    final breakEvenYear = _breakEvenYear(rows);
+    final scenarios = _scenarioResults(
+      monthly: startingSip,
+      baseReturn: netReturn,
+      stepPercent: stepPercent,
+      years: term,
+      inflationRate: inflationRate,
+    );
+    final scenarioActive = scenarioMode == SipScenarioMode.scenario;
+    final results = scenarioActive
+        ? [
+            ResultMetric('Maturity value',
+                _scenarioMetric(scenarios, (scenario) => scenario.maturity)),
+            ResultMetric('Invested amount',
+                _scenarioMetric(scenarios, (scenario) => scenario.invested)),
+            ResultMetric(
+                'Wealth gain',
+                _scenarioMetric(scenarios,
+                    (scenario) => scenario.maturity - scenario.invested)),
+            ResultMetric('Real corpus (inflation-adj.)',
+                _scenarioMetric(scenarios, (scenario) => scenario.realCorpus)),
+            if (ltcgEnabled)
+              ResultMetric('Post-tax corpus', money(postTaxCorpus)),
+          ]
+        : [
+            if (mode == SipMode.requiredSip)
+              ResultMetric('Required monthly SIP', money(startingSip)),
+            if (mode == SipMode.requiredSip && stepUpEnabled)
+              ResultMetric('Starting SIP with step-up', money(startingSip)),
+            ResultMetric('Maturity value', money(maturity)),
+            ResultMetric('Invested amount', money(invested)),
+            ResultMetric('Wealth gain', money(maturity - invested)),
+            ResultMetric(
+                'Real corpus (inflation-adj.)', '${money(realCorpus)}\nToday'),
+            if (ltcgEnabled)
+              ResultMetric(
+                  'Post-tax corpus', '${money(postTaxCorpus)}\nAfter LTCG'),
+          ];
 
     return CalculatorCard(
       inputs: [
-        MoneyField(
-            label: 'Monthly SIP', controller: amount, onChanged: refresh),
+        SipModeSelector(
+          selected: mode,
+          onChanged: (next) => setState(() => mode = next),
+        ),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          child: mode == SipMode.corpus
+              ? MoneyField(
+                  key: const ValueKey('monthly-sip'),
+                  label: stepUpEnabled ? 'Starting SIP' : 'Monthly SIP',
+                  controller: amount,
+                  onChanged: refresh,
+                )
+              : MoneyField(
+                  key: const ValueKey('target-corpus'),
+                  label: 'Target corpus',
+                  controller: target,
+                  onChanged: refresh,
+                ),
+        ),
         PercentField(
             label: 'Expected return', controller: rate, onChanged: refresh),
-        NumberField(label: 'Years', controller: years, onChanged: refresh),
-      ],
-      results: [
-        ResultMetric('Maturity value', money(maturity)),
-        ResultMetric('Invested amount', money(invested)),
-        ResultMetric('Wealth gain', money(maturity - invested)),
-      ],
-      chart: VisualInsightPanel(
-        title: 'SIP Growth Mix',
-        subtitle: 'Invested capital, estimated gain, and corpus path',
-        segments: [
-          ChartItem(
-            label: 'Invested',
-            value: invested,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          ChartItem(
-            label: 'Wealth gain',
-            value: max(0, maturity - invested),
-            color: Theme.of(context).colorScheme.tertiary,
-          ),
-        ],
-        bars: [
-          ChartItem(
-            label: 'Invested',
-            value: invested,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          ChartItem(
-            label: 'Maturity',
-            value: maturity,
-            color: Theme.of(context).colorScheme.tertiary,
-          ),
-        ],
-        linePoints: projectionPoints(
-          years: term,
-          valueAtYear: (year) => calc.futureValueSip(
-            monthlyInvestment: monthly,
-            annualReturnPercent: value(rate),
-            years: year,
+        Align(
+          alignment: Alignment.centerLeft,
+          child: YieldWiseChip(
+            icon: Icons.percent,
+            label: 'Net: ${netReturn.toStringAsFixed(1)}%',
           ),
         ),
+        NumberField(label: 'Years', controller: years, onChanged: refresh),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Enable Step-up SIP'),
+          value: stepUpEnabled,
+          onChanged: (next) => setState(() => stepUpEnabled = next),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(top: 18),
+            child: PercentField(
+              label: 'Annual Step-up',
+              controller: step,
+              onChanged: refresh,
+            ),
+          ),
+          crossFadeState: stepUpEnabled
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 220),
+        ),
+        ExpandableInputSection(
+          title: 'Advanced Options',
+          open: advancedOpen,
+          onChanged: (next) => setState(() => advancedOpen = next),
+          children: [
+            PercentField(
+              label: 'Inflation rate',
+              controller: inflation,
+              onChanged: refresh,
+            ),
+            PercentField(
+              label: 'Expense ratio (TER)',
+              controller: expenseRatio,
+              onChanged: refresh,
+              helperText: 'Total Expense Ratio charged by the fund annually',
+            ),
+            ResponsiveSwitchRow(
+              title: 'Apply LTCG tax on gains',
+              subtitle:
+                  'Gains above INR 1.25L taxed at 12.5%. Toggle off for tax-advantaged accounts.',
+              value: ltcgEnabled,
+              onChanged: (next) => setState(() => ltcgEnabled = next),
+            ),
+            AnimatedCrossFade(
+              firstChild: const SizedBox.shrink(),
+              secondChild: Padding(
+                padding: const EdgeInsets.only(top: 18),
+                child: Column(
+                  children: spaced([
+                    MoneyField(
+                      label: 'LTCG exemption limit',
+                      controller: ltcgExemption,
+                      onChanged: refresh,
+                    ),
+                    PercentField(
+                      label: 'LTCG tax rate',
+                      controller: ltcgRate,
+                      onChanged: refresh,
+                    ),
+                  ]),
+                ),
+              ),
+              crossFadeState: ltcgEnabled
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 220),
+            ),
+          ],
+        ),
+      ],
+      results: results,
+      chart: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (breakEvenYear != null && term > breakEvenYear) ...[
+            YieldWiseInfoBanner(
+              text:
+                  'Your wealth gain exceeds invested capital in Year $breakEvenYear',
+            ),
+            const SizedBox(height: 12),
+          ],
+          Row(
+            children: [
+              const Expanded(child: SectionLabel('SIP Growth Mix')),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SegmentedButton<SipScenarioMode>(
+                  selected: {scenarioMode},
+                  onSelectionChanged: (next) =>
+                      setState(() => scenarioMode = next.single),
+                  segments: const [
+                    ButtonSegment(
+                      value: SipScenarioMode.single,
+                      label: Text('Single rate'),
+                    ),
+                    ButtonSegment(
+                      value: SipScenarioMode.scenario,
+                      label: Text('Scenario view'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (scenarioActive)
+            ScenarioInsightPanel(scenarios: scenarios)
+          else
+            VisualInsightPanel(
+              title: 'SIP Growth Mix',
+              subtitle: 'Invested capital, estimated gain, and corpus path',
+              segments: [
+                ChartItem(
+                  label: 'Invested',
+                  value: invested,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                ChartItem(
+                  label: 'Wealth gain',
+                  value: max(0, maturity - invested),
+                  color: Theme.of(context).colorScheme.tertiary,
+                ),
+              ],
+              bars: [
+                ChartItem(
+                  label: 'Invested',
+                  value: invested,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                ChartItem(
+                  label: 'Maturity',
+                  value: maturity,
+                  color: Theme.of(context).colorScheme.tertiary,
+                ),
+              ],
+              linePoints: projectionPoints(
+                years: term,
+                valueAtYear: (year) =>
+                    _sipCorpus(startingSip, netReturn, stepPercent, year),
+              ),
+            ),
+          const SizedBox(height: 12),
+          SipYearBreakdownPanel(
+            open: tableOpen,
+            rows: rows,
+            showRealCorpus: inflationRate > 0,
+            onToggle: () => setState(() => tableOpen = !tableOpen),
+          ),
+        ],
       ),
       tracker: PlanTracker(
         key: const ValueKey('sip-tracker'),
@@ -889,7 +1131,9 @@ class _SipCalculatorState extends State<SipCalculator> {
         targetLabel: 'Projected corpus',
         targetValue: maturity,
         markers: [
-          TrackingMarker('Monthly habit', money(monthly)),
+          TrackingMarker(
+              mode == SipMode.requiredSip ? 'Required SIP' : 'Monthly habit',
+              money(startingSip)),
           TrackingMarker('Time left', '$term years'),
           TrackingMarker(
               'Gain share', percentOf(maturity - invested, maturity)),
@@ -907,6 +1151,84 @@ class _SipCalculatorState extends State<SipCalculator> {
   }
 
   void refresh(String _) => setState(() {});
+
+  double _sipCorpus(
+    double monthly,
+    double annualReturn,
+    double annualStepUp,
+    int years,
+  ) {
+    if (annualStepUp > 0) {
+      return calc.futureValueStepUpSip(
+        monthlyInvestment: monthly,
+        annualReturnPercent: annualReturn,
+        annualStepUpPercent: annualStepUp,
+        years: years,
+      );
+    }
+    return calc.futureValueSip(
+      monthlyInvestment: monthly,
+      annualReturnPercent: annualReturn,
+      years: years,
+    );
+  }
+
+  double _realCorpus(double corpus, double inflationRate, int years) {
+    if (inflationRate <= 0) return corpus;
+    return corpus / pow(1 + inflationRate / 100, years);
+  }
+
+  List<SipScenarioResult> _scenarioResults({
+    required double monthly,
+    required double baseReturn,
+    required double stepPercent,
+    required int years,
+    required double inflationRate,
+  }) {
+    final labels = [
+      ('Bear', max(0, baseReturn - 4).toDouble()),
+      ('Base', baseReturn),
+      ('Bull', baseReturn + 4),
+    ];
+    return [
+      for (final item in labels)
+        SipScenarioResult(
+          label: item.$1,
+          annualReturn: item.$2,
+          invested: calc.totalInvestedSip(
+            monthlyInvestment: monthly,
+            annualStepUpPercent: stepPercent,
+            years: years,
+          ),
+          maturity: _sipCorpus(monthly, item.$2, stepPercent, years),
+          realCorpus: _realCorpus(
+              _sipCorpus(monthly, item.$2, stepPercent, years),
+              inflationRate,
+              years),
+          linePoints: projectionPoints(
+            years: years,
+            valueAtYear: (year) =>
+                _sipCorpus(monthly, item.$2, stepPercent, year),
+          ),
+        ),
+    ];
+  }
+
+  String _scenarioMetric(
+    List<SipScenarioResult> scenarios,
+    double Function(SipScenarioResult scenario) pick,
+  ) {
+    return scenarios
+        .map((scenario) => '${scenario.label}: ${money(pick(scenario))}')
+        .join('\n');
+  }
+
+  int? _breakEvenYear(List<calc.SipYearRow> rows) {
+    for (final row in rows) {
+      if (row.wealthGain > row.invested) return row.year;
+    }
+    return null;
+  }
 }
 
 class EmiCalculator extends StatefulWidget {
@@ -1949,114 +2271,6 @@ class _RetirementCalculatorState extends State<RetirementCalculator> {
   void refresh(String _) => setState(() {});
 }
 
-class StepUpSipCalculator extends StatefulWidget {
-  const StepUpSipCalculator({super.key});
-
-  @override
-  State<StepUpSipCalculator> createState() => _StepUpSipCalculatorState();
-}
-
-class _StepUpSipCalculatorState extends State<StepUpSipCalculator> {
-  final amount = TextEditingController(text: '5000');
-  final rate = TextEditingController(text: '12');
-  final step = TextEditingController(text: '10');
-  final years = TextEditingController(text: '20');
-
-  @override
-  Widget build(BuildContext context) {
-    final normal = calc.futureValueSip(
-      monthlyInvestment: value(amount),
-      annualReturnPercent: value(rate),
-      years: value(years).round(),
-    );
-    final stepped = calc.futureValueStepUpSip(
-      monthlyInvestment: value(amount),
-      annualReturnPercent: value(rate),
-      annualStepUpPercent: value(step),
-      years: value(years).round(),
-    );
-
-    return CalculatorCard(
-      inputs: [
-        MoneyField(
-            label: 'Starting SIP', controller: amount, onChanged: refresh),
-        PercentField(
-            label: 'Expected return', controller: rate, onChanged: refresh),
-        PercentField(
-            label: 'Annual step-up', controller: step, onChanged: refresh),
-        NumberField(label: 'Years', controller: years, onChanged: refresh),
-      ],
-      results: [
-        ResultMetric('Step-up corpus', money(stepped)),
-        ResultMetric('Normal SIP corpus', money(normal)),
-        ResultMetric('Extra created', money(stepped - normal)),
-      ],
-      chart: VisualInsightPanel(
-        title: 'Step-up Advantage',
-        subtitle: 'Normal SIP baseline, extra corpus, and annual ramp',
-        segments: [
-          ChartItem(
-            label: 'Normal SIP',
-            value: normal,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          ChartItem(
-            label: 'Extra created',
-            value: max(0, stepped - normal),
-            color: Theme.of(context).colorScheme.tertiary,
-          ),
-        ],
-        bars: [
-          ChartItem(
-            label: 'Normal',
-            value: normal,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          ChartItem(
-            label: 'Step-up',
-            value: stepped,
-            color: Theme.of(context).colorScheme.tertiary,
-          ),
-        ],
-        linePoints: projectionPoints(
-          years: value(years).round(),
-          valueAtYear: (year) => calc.futureValueStepUpSip(
-            monthlyInvestment: value(amount),
-            annualReturnPercent: value(rate),
-            annualStepUpPercent: value(step),
-            years: year,
-          ),
-        ),
-      ),
-      tracker: PlanTracker(
-        key: const ValueKey('step-up-sip-tracker'),
-        title: 'Track your step-up SIP',
-        icon: Icons.stacked_line_chart,
-        currentLabel: 'Normal SIP corpus',
-        currentValue: normal,
-        targetLabel: 'Step-up corpus',
-        targetValue: stepped,
-        markers: [
-          TrackingMarker('Starting SIP', money(value(amount))),
-          TrackingMarker(
-              'Annual step-up', '${value(step).toStringAsFixed(2)}%'),
-          TrackingMarker('Extra created', money(stepped - normal)),
-        ],
-      ),
-      extra: const Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SipMarketPanel(title: 'Step-up SIP Watchlist'),
-          SizedBox(height: 12),
-          AffiliatePanel(offer: AffiliateOffers.sip),
-        ],
-      ),
-    );
-  }
-
-  void refresh(String _) => setState(() {});
-}
-
 class EligibilityCalculator extends StatefulWidget {
   const EligibilityCalculator({super.key});
 
@@ -2643,15 +2857,618 @@ class ResultTile extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             metric.value,
-            maxLines: 2,
+            maxLines: 4,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w800,
+                  fontSize: metric.value.contains('\n') ? 16 : null,
                 ),
           ),
         ],
       ),
     );
+  }
+}
+
+class YieldWiseChip extends StatelessWidget {
+  const YieldWiseChip({required this.icon, required this.label, super.key});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class YieldWiseInfoBanner extends StatelessWidget {
+  const YieldWiseInfoBanner({required this.text, super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.16),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.location_on_outlined,
+              size: 18, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ExpandableInputSection extends StatelessWidget {
+  const ExpandableInputSection({
+    required this.title,
+    required this.open,
+    required this.onChanged,
+    required this.children,
+    super.key,
+  });
+
+  final String title;
+  final bool open;
+  final ValueChanged<bool> onChanged;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextButton.icon(
+          onPressed: () => onChanged(!open),
+          icon: Icon(open ? Icons.expand_less : Icons.expand_more),
+          label: Text(title),
+          style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: spaced(children),
+            ),
+          ),
+          crossFadeState:
+              open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 220),
+        ),
+      ],
+    );
+  }
+}
+
+class SipModeSelector extends StatelessWidget {
+  const SipModeSelector({
+    required this.selected,
+    required this.onChanged,
+    super.key,
+  });
+
+  final SipMode selected;
+  final ValueChanged<SipMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      height: 40,
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.colorScheme.outline),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          AnimatedAlign(
+            alignment: selected == SipMode.corpus
+                ? Alignment.centerLeft
+                : Alignment.centerRight,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            child: FractionallySizedBox(
+              widthFactor: 0.5,
+              heightFactor: 1,
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: _SipModeButton(
+                  label: 'Corpus',
+                  icon: Icons.trending_up,
+                  selected: selected == SipMode.corpus,
+                  onPressed: () => onChanged(SipMode.corpus),
+                ),
+              ),
+              Expanded(
+                child: _SipModeButton(
+                  label: 'Required SIP',
+                  icon: Icons.flag_outlined,
+                  selected: selected == SipMode.requiredSip,
+                  onPressed: () => onChanged(SipMode.requiredSip),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SipModeButton extends StatelessWidget {
+  const _SipModeButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final foreground = selected
+        ? theme.colorScheme.onSecondaryContainer
+        : theme.colorScheme.onSurface;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: foreground),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: foreground,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class SipYearBreakdownPanel extends StatelessWidget {
+  const SipYearBreakdownPanel({
+    required this.open,
+    required this.rows,
+    required this.showRealCorpus,
+    required this.onToggle,
+    super.key,
+  });
+
+  final bool open;
+  final List<calc.SipYearRow> rows;
+  final bool showRealCorpus;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FCFF),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(child: SectionLabel('Year-by-Year Breakdown')),
+              OutlinedButton.icon(
+                onPressed: onToggle,
+                icon: Icon(open ? Icons.visibility_off : Icons.table_chart),
+                label: Text(open ? 'Hide table' : 'Show table'),
+              ),
+            ],
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  headingRowColor: WidgetStatePropertyAll(
+                    Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.8),
+                  ),
+                  columns: [
+                    const DataColumn(label: Text('Year')),
+                    const DataColumn(label: Text('Monthly SIP')),
+                    const DataColumn(label: Text('Cumulative Invested')),
+                    const DataColumn(label: Text('Corpus')),
+                    const DataColumn(label: Text('Wealth Gain')),
+                    if (showRealCorpus)
+                      const DataColumn(label: Text('Real Corpus')),
+                  ],
+                  rows: [
+                    for (var i = 0; i < rows.length; i++)
+                      DataRow(
+                        color: WidgetStatePropertyAll(
+                          i == rows.length - 1
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withValues(alpha: 0.08)
+                              : i.isEven
+                                  ? Colors.white
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest
+                                      .withValues(alpha: 0.35),
+                        ),
+                        cells: [
+                          DataCell(_TableText('${rows[i].year}',
+                              strong: i == rows.length - 1)),
+                          DataCell(_TableText(money(rows[i].monthlySip),
+                              strong: i == rows.length - 1)),
+                          DataCell(_TableText(money(rows[i].invested),
+                              strong: i == rows.length - 1)),
+                          DataCell(_TableText(money(rows[i].corpus),
+                              strong: i == rows.length - 1)),
+                          DataCell(_TableText(money(rows[i].wealthGain),
+                              strong: i == rows.length - 1)),
+                          if (showRealCorpus)
+                            DataCell(_TableText(money(rows[i].realCorpus),
+                                strong: i == rows.length - 1)),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            crossFadeState:
+                open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 220),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TableText extends StatelessWidget {
+  const _TableText(this.text, {required this.strong});
+
+  final String text;
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(fontWeight: strong ? FontWeight.w900 : null),
+    );
+  }
+}
+
+class SipScenarioResult {
+  const SipScenarioResult({
+    required this.label,
+    required this.annualReturn,
+    required this.invested,
+    required this.maturity,
+    required this.realCorpus,
+    required this.linePoints,
+  });
+
+  final String label;
+  final double annualReturn;
+  final double invested;
+  final double maturity;
+  final double realCorpus;
+  final List<double> linePoints;
+}
+
+class ScenarioInsightPanel extends StatelessWidget {
+  const ScenarioInsightPanel({required this.scenarios, super.key});
+
+  final List<SipScenarioResult> scenarios;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = [
+      Theme.of(context).colorScheme.primary.withValues(alpha: 0.55),
+      Theme.of(context).colorScheme.primary,
+      Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.75),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FCFF),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.insights,
+                    color: Theme.of(context).colorScheme.primary),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SIP Growth Mix',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    Text(
+                      'Bear, base, and bull corpus paths',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (var i = 0; i < scenarios.length; i++)
+                YieldWiseChip(
+                  icon: Icons.show_chart,
+                  label:
+                      '${scenarios[i].label}: ${scenarios[i].annualReturn.toStringAsFixed(1)}%',
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 620;
+              final children = [
+                _InsightTile(
+                  title: 'Comparison',
+                  child: BarInsight(
+                    items: [
+                      for (var i = 0; i < scenarios.length; i++)
+                        ChartItem(
+                          label: scenarios[i].label,
+                          value: scenarios[i].maturity,
+                          color: colors[i],
+                        ),
+                    ],
+                  ),
+                ),
+                _InsightTile(
+                  title: 'Trend',
+                  child: MultiLineInsight(
+                    scenarios: scenarios,
+                    colors: colors,
+                  ),
+                ),
+              ];
+              if (!wide) {
+                return Column(
+                  children: [
+                    children.first,
+                    const SizedBox(height: 12),
+                    children.last,
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: children.first),
+                  const SizedBox(width: 12),
+                  Expanded(child: children.last),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class MultiLineInsight extends StatelessWidget {
+  const MultiLineInsight({
+    required this.scenarios,
+    required this.colors,
+    super.key,
+  });
+
+  final List<SipScenarioResult> scenarios;
+  final List<Color> colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: CustomPaint(
+            painter: MultiLineInsightPainter(
+              scenarios: scenarios,
+              colors: colors,
+              gridColor: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 10,
+          runSpacing: 6,
+          children: [
+            for (var i = 0; i < scenarios.length; i++)
+              Text(
+                '${scenarios[i].label} ${money(scenarios[i].maturity)}',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colors[i],
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class MultiLineInsightPainter extends CustomPainter {
+  const MultiLineInsightPainter({
+    required this.scenarios,
+    required this.colors,
+    required this.gridColor,
+  });
+
+  final List<SipScenarioResult> scenarios;
+  final List<Color> colors;
+  final Color gridColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final series = scenarios
+        .map(
+            (scenario) => scenario.linePoints.where((p) => p.isFinite).toList())
+        .where((points) => points.length >= 2)
+        .toList();
+    if (series.isEmpty) return;
+    final allPoints = series.expand((points) => points).toList();
+    final minValue = allPoints.reduce(min);
+    final maxValue = allPoints.reduce(max);
+    final span = max(1, maxValue - minValue);
+    const inset = EdgeInsets.fromLTRB(6, 8, 6, 10);
+    final chart = Rect.fromLTWH(
+      inset.left,
+      inset.top,
+      size.width - inset.horizontal,
+      size.height - inset.vertical,
+    );
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    for (var i = 0; i < 4; i++) {
+      final y = chart.top + chart.height * i / 3;
+      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), gridPaint);
+    }
+    for (var s = 0; s < series.length; s++) {
+      final points = series[s];
+      final path = Path();
+      for (var i = 0; i < points.length; i++) {
+        final x = chart.left + chart.width * i / (points.length - 1);
+        final y = chart.bottom - ((points[i] - minValue) / span) * chart.height;
+        if (i == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+      }
+      final paint = Paint()
+        ..color = colors[s]
+        ..strokeWidth = s == 1 ? 3 : 2
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      if (s != 1) paint.strokeWidth = 2;
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant MultiLineInsightPainter oldDelegate) {
+    return oldDelegate.scenarios != scenarios ||
+        oldDelegate.colors != colors ||
+        oldDelegate.gridColor != gridColor;
   }
 }
 
@@ -5207,12 +6024,14 @@ class MoneyField extends StatelessWidget {
     required this.label,
     required this.controller,
     required this.onChanged,
+    this.helperText,
     super.key,
   });
 
   final String label;
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
+  final String? helperText;
 
   @override
   Widget build(BuildContext context) {
@@ -5221,6 +6040,7 @@ class MoneyField extends StatelessWidget {
       controller: controller,
       onChanged: onChanged,
       prefix: 'INR',
+      helperText: helperText,
     );
   }
 }
@@ -5230,12 +6050,14 @@ class PercentField extends StatelessWidget {
     required this.label,
     required this.controller,
     required this.onChanged,
+    this.helperText,
     super.key,
   });
 
   final String label;
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
+  final String? helperText;
 
   @override
   Widget build(BuildContext context) {
@@ -5244,6 +6066,7 @@ class PercentField extends StatelessWidget {
       controller: controller,
       onChanged: onChanged,
       suffix: '%',
+      helperText: helperText,
     );
   }
 }
@@ -5255,6 +6078,7 @@ class NumberField extends StatelessWidget {
     required this.onChanged,
     this.prefix,
     this.suffix,
+    this.helperText,
     super.key,
   });
 
@@ -5263,6 +6087,7 @@ class NumberField extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final String? prefix;
   final String? suffix;
+  final String? helperText;
 
   @override
   Widget build(BuildContext context) {
@@ -5274,6 +6099,56 @@ class NumberField extends StatelessWidget {
         labelText: label,
         prefixText: prefix == null ? null : '$prefix ',
         suffixText: suffix,
+        helperText: helperText,
+        helperMaxLines: 2,
+      ),
+    );
+  }
+}
+
+class ResponsiveSwitchRow extends StatelessWidget {
+  const ResponsiveSwitchRow({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+    super.key,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Switch(value: value, onChanged: onChanged),
+        ],
       ),
     );
   }
@@ -5336,6 +6211,10 @@ class ResultMetric {
 }
 
 enum SimpleKind { lumpsum, ppf, cagr, inflation, gst }
+
+enum SipMode { corpus, requiredSip }
+
+enum SipScenarioMode { single, scenario }
 
 final modules = <FinanceModule>[
   FinanceModule(
@@ -5676,42 +6555,6 @@ final modules = <FinanceModule>[
         question: 'What are good post-retirement investment options?',
         answer:
             'Consider low-risk options like fixed deposits, government securities, bonds, or dividend-paying stocks. A balanced portfolio is safer than single asset type.',
-      ),
-    ],
-  ),
-  FinanceModule(
-    id: 'step_up_sip',
-    title: 'Step-up SIP',
-    shortTitle: 'Step-up',
-    subtitle: 'Annual SIP increase and extra corpus',
-    icon: Icons.stacked_line_chart,
-    accent: const Color(0xFF169B62),
-    builder: (_) => const StepUpSipCalculator(),
-    faqs: [
-      const FAQ(
-        question: 'What is Step-up SIP?',
-        answer:
-            'Step-up SIP is a modified SIP where your monthly investment amount increases by a fixed percentage every year. This is ideal if your income grows over time.',
-      ),
-      const FAQ(
-        question: 'How much extra corpus can Step-up SIP create?',
-        answer:
-            'A Step-up SIP can create 30-50% more corpus compared to regular SIP over 20-25 years, depending on the step-up percentage and investment tenure.',
-      ),
-      const FAQ(
-        question: 'Is Step-up SIP suitable for everyone?',
-        answer:
-            'Step-up SIP is ideal for young professionals with growing income. It aligns your investments with salary growth, making it easier to maintain without financial strain.',
-      ),
-      const FAQ(
-        question: 'How do I choose the right step-up percentage?',
-        answer:
-            'Choose a step-up percentage close to your expected annual salary growth (usually 10-20%). Starting with your expected next year\'s income gives a realistic plan.',
-      ),
-      const FAQ(
-        question: 'Can I modify my Step-up SIP?',
-        answer:
-            'Most mutual fund companies allow you to modify your SIP amount or step-up percentage. Contact your fund house or use their online platform to make changes.',
       ),
     ],
   ),

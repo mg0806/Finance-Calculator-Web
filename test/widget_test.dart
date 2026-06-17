@@ -28,7 +28,7 @@ void main() {
     await tester.tap(find.text('SIP Calculator'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Monthly SIP'), findsOneWidget);
+    expect(find.text('Monthly SIP'), findsAtLeastNWidgets(1));
     expect(find.text('Maturity value'), findsOneWidget);
   });
 }

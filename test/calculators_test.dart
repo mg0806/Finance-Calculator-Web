@@ -28,6 +28,38 @@ void main() {
     expect(stepped, greaterThan(flat));
   });
 
+  test('required step-up SIP reaches target corpus', () {
+    final sip = requiredStepUpSipForGoal(
+      goal: 5000000,
+      annualReturnPercent: 11.5,
+      annualStepUpPercent: 10,
+      years: 15,
+    );
+    final corpus = futureValueStepUpSip(
+      monthlyInvestment: sip,
+      annualReturnPercent: 11.5,
+      annualStepUpPercent: 10,
+      years: 15,
+    );
+
+    expect(corpus, closeTo(5000000, 1));
+  });
+
+  test('sip yearly breakdown tracks invested corpus and real corpus', () {
+    final rows = sipYearBreakdown(
+      monthlyInvestment: 10000,
+      annualReturnPercent: 12,
+      annualStepUpPercent: 10,
+      years: 3,
+      inflationPercent: 6,
+    );
+
+    expect(rows, hasLength(3));
+    expect(rows.last.invested, closeTo(397200, 0.01));
+    expect(rows.last.corpus, greaterThan(rows.last.invested));
+    expect(rows.last.realCorpus, lessThan(rows.last.corpus));
+  });
+
   test('gst can remove included tax', () {
     final result = gst(amount: 1180, ratePercent: 18, includesGst: true);
 
